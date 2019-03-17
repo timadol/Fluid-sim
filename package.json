@@ -1,0 +1,15 @@
+{
+  "name": "euler-liquid",
+  "version": "1.0.0",
+  "description": "",
+  "main": "Euler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^5.15.2",
+    "eslint-plugin-react": "^7.12.4"
+  }
+}

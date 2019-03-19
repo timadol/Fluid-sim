@@ -7,7 +7,7 @@ let gridWidth = N;
 let gridHeight = N;
 let width = CELL_SIZE * gridWidth;
 let height = CELL_SIZE * gridHeight;
-let diff = 0.001;
+let diff = 1;
 
 var fieldGrid;
 
@@ -55,6 +55,7 @@ function start(ctx) {
     start = new Date();
 
     diffuse(fieldGrid.t, time, 0);
+    //advect(fieldGrid.t,fieldGrid.v,fieldGrid.u,time,0);
     drawField(ctx, CELL_SIZE);
     requestAnimationFrame(animationLoop);
   }
@@ -68,7 +69,7 @@ function drawField(ctx, multiplier) {
     for (let j = 0; j < gridWidth; j++) {
       let x = fieldGrid.t[i * gridWidth + j];
       x = x / 200;
-      ctx.fillStyle = rgbToHex(hToRgb((1-x)*240));
+      ctx.fillStyle = rgbToHex(hToRgb((1 - x) * 240));
       ctx.fillRect(j * multiplier, i * multiplier, multiplier, multiplier);
     }
   }
@@ -78,37 +79,61 @@ function coor(x, y) {
   return gridHeight * y + x;
 }
 
-function diffuse(x, dt, type) {
+function diffuse(d, dt, type) {
   let a = dt * diff;
 
   for (let k = 0; k < 20; k++) {
-    x0 = x.concat([]);
+    let d0 = d.concat([]);
     for (let i = 1; i < gridHeight - 1; i++) {
       for (let j = 1; j < gridWidth - 1; j++) {
-        x[coor(j, i)] =
-          (x0[coor(j, i)] +
+        d[coor(j, i)] =
+          (d0[coor(j, i)] +
             a *
-              (x[coor(j + 1, i)] +
-                x[coor(j - 1, i)] +
-                x[coor(j, i - 1)] +
-                x[coor(j, i + 1)])) /
+              (d[coor(j + 1, i)] +
+                d[coor(j - 1, i)] +
+                d[coor(j, i - 1)] +
+                d[coor(j, i + 1)])) /
           (1 + 4 * a);
       }
     }
-    setBnd(x, type);
+    setBnd(d, type);
   }
+}
+
+function advect(d, v, u, dt, type) {
+  let d0 = d.concat([]);
+  for (let i = 1; i < gridHeight - 1; i++) {
+    for (let j = 1; j < gridWidth - 1; j++) {
+      let y = i - dt * u[coor(j, i)];
+      let x = j - dt * v[coor(j, i)];
+      if (x<0.5) x = 0.5;
+      if (x>gridWidth-0.5) x = gridWidth-0.5;
+      if (y<0.5) y = 0.5;
+      if (y>gridHeight - 0.5) x = gridHeight -0.5;
+      let kTL = (y % 1) * (x % 1);
+      let kTR = (y % 1) * (1 - (x % 1));
+      let kBL = (1 - (y % 1)) * (x % 1);
+      let kBR = (1 - (y % 1)) * (1 - (x % 1));
+      let tL = d0[coor(Math.floor(x)-1, Math.floor(y))-1];
+      let tR = d0[coor(Math.floor(x), Math.floor(y))-1];
+      let bL = d0[coor(Math.floor(x)-1, Math.floor(y))];
+      let bR = d0[coor(Math.floor(x), Math.floor(y))];
+      d[coor(j, i)] = kTL * tL + kTR * tR * kBL * bL * kBR * bR;
+    }
+  }
+  setBnd(d,type);
 }
 
 function setBnd(x, type) {
   if (type == 0) {
     //Граничные условия для температуры
     for (let i = 0; i < gridWidth; i++) {
-      if (i>40 && i< 60)x[i] = x[gridWidth + i];
+      if (i > 40 && i < 60) x[i] = x[gridWidth + i];
       else x[i] = 200;
     }
     for (let i = 0; i < gridWidth; i++) {
-      x[gridWidth * (gridHeight - 1) + i] =
-        x[gridWidth * (gridHeight - 1) + i - 1];
+      //x[gridWidth * (gridHeight - 1) + i] = x[gridWidth * (gridHeight - 1) + i - 1];
+      x[gridWidth * (gridHeight - 1) + i] = 0;
     }
     for (let i = 1; i < gridHeight; i++) {
       x[i * gridWidth] = x[i * gridWidth + 1];
@@ -163,8 +188,9 @@ function gridInitialize(fieldGrid) {
       // fieldGrid.prevV.push(0);
       // fieldGrid.prevU.push(0);
       fieldGrid.v.push(0);
-      if (j > 40 && j < 60 && (i > 45 && i < 55)) fieldGrid.u.push(0.01);
-      else fieldGrid.u.push(0);
+      //if (j > 40 && j < 60 && (i > 45 && i < 55)) fieldGrid.u.push(0.01);
+      //else 
+      fieldGrid.u.push(0);
     }
   }
 }

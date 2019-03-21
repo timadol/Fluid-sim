@@ -7,8 +7,8 @@ let gridWidth = N;
 let gridHeight = N;
 let width = CELL_SIZE * gridWidth;
 let height = CELL_SIZE * gridHeight;
-let diff = 1;
-let visc = 10;
+let diff = 0;
+let visc = 0;
 
 var fieldGrid;
 
@@ -55,15 +55,15 @@ function start(ctx) {
     time /= TIME_MULTIPLIER;
     start = new Date();
 
-    diffuse(fieldGrid.v, time, visc, 2);
-    diffuse(fieldGrid.u, time, visc, 1);
+    diffuse(fieldGrid.v, time, visc, 1);
+    diffuse(fieldGrid.u, time, visc, 2);
 
-    project(fieldGrid.v, fieldGrid.u);
+    project(fieldGrid.v,fieldGrid.u);
+    
+    advect(fieldGrid.v, fieldGrid.v, fieldGrid.u, time, 1);
+    advect(fieldGrid.u, fieldGrid.v, fieldGrid.u, time, 2);
 
-    advect(fieldGrid.v, fieldGrid.v, fieldGrid.u, time, 2);
-    advect(fieldGrid.u, fieldGrid.v, fieldGrid.u, time, 1);
-
-    project(fieldGrid.v, fieldGrid.u);
+    project(fieldGrid.v,fieldGrid.u);
 
     diffuse(fieldGrid.t, time, diff, 0);
     advect(fieldGrid.t, fieldGrid.v, fieldGrid.u, time, 0);
@@ -91,8 +91,8 @@ function drawField(ctx, multiplier) {
       ctx.beginPath();
       ctx.moveTo((j + 0.5) * multiplier, (i + 0.5) * multiplier);
       ctx.lineTo(
-        (j + 0.5) * multiplier + 10 * fieldGrid.v[i * gridWidth + j],
-        (i + 0.5) * multiplier + 10 * fieldGrid.u[i * gridWidth + j]
+        (j + 0.5) * multiplier + 5 * fieldGrid.v[i * gridWidth + j],
+        (i + 0.5) * multiplier + 5 * fieldGrid.u[i * gridWidth + j]
       );
       ctx.stroke();
     }
@@ -213,7 +213,7 @@ function project(v, u) {
 }
 
 function setBnd(x, b) {
-  if (b == 0) {
+  if (b == 0) { //для плотности
     for (let i = 1; i < gridWidth - 1; i++) {
       x[coor(i, 0)] = x[coor(i, 1)];
       x[coor(i, gridWidth - 1)] = x[coor(i, gridWidth - 2)];
@@ -223,27 +223,27 @@ function setBnd(x, b) {
       x[coor(gridHeight - 1, i)] = x[coor(gridHeight - 2, i)];
     }
   }
-  if (b == 1) {
+  if (b == 1) { //для х компоненты скорости
     for (let i = 1; i < gridWidth - 1; i++) {
-      x[coor(i, 0)] = -x[coor(i, 1)];
-      x[coor(i, gridWidth - 1)] = -x[coor(i, gridWidth - 2)];
-    }
-    for (let i = 1; i < gridHeight - 1; i++) {
-      x[coor(0, i)] = x[coor(1, i)];
-      x[coor(gridHeight - 1, i)] = x[coor(gridHeight - 2, i)];
-    }
-  }
-  if (b == 2) {
-    for (let i = 1; i < gridWidth - 1; i++) {
-      x[coor(i, 0)] = x[coor(i, 1)];
-      x[coor(i, gridWidth - 1)] = x[coor(i, gridWidth - 2)];
+      x[coor(i, 0)] = 0;
+      x[coor(i, gridWidth - 1)] = 0;
     }
     for (let i = 1; i < gridHeight - 1; i++) {
       x[coor(0, i)] = -x[coor(1, i)];
       x[coor(gridHeight - 1, i)] = -x[coor(gridHeight - 2, i)];
     }
   }
-  if (b == 3) {
+  if (b == 2) { //для у компоненты скорости
+    for (let i = 1; i < gridWidth - 1; i++) {
+      x[coor(i, 0)] = -x[coor(i, 1)];
+      x[coor(i, gridWidth - 1)] = -x[coor(i, gridWidth - 2)];
+    }
+    for (let i = 1; i < gridHeight - 1; i++) {
+      x[coor(0, i)] = 0;
+      x[coor(gridHeight - 1, i)] = 0;
+    }
+  }
+  if (b == 3) {//особый случай, искользуется в расчете уравнения Пуассона
     for (let i = 1; i < gridWidth - 1; i++) {
       x[coor(i, 0)] = x[coor(i, 1)];
       x[coor(i, gridWidth - 1)] = x[coor(i, gridWidth - 2)];

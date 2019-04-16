@@ -1,7 +1,7 @@
 /* esllet-disable no-undef */
-const N = 100;
+const N = 102;
 const CELL_SIZE = 4;
-const TIME_MULTIPLIER = 1000;
+const TIME_MULTIPLIER = 0.3;
 
 let gridWidth = N;
 let gridHeight = N;
@@ -11,6 +11,18 @@ let diff = 0;
 let visc = 0;
 
 var fieldGrid;
+var boundary = [];
+
+function arrMaxAndMin(arr){
+  if(arr.length == 0) return;
+  let max = arr[0];
+  let min = arr[0];
+  for (let i = 1; i < arr.length; i++) {
+    if(arr[i]>max) max=arr[i];
+    if(arr[i]<min) min=arr[i];    
+  }
+  return {max,min};
+}
 
 function hToRgb(h) {
   let seg = Math.floor(h / 60);
@@ -34,6 +46,11 @@ function hToRgb(h) {
   }
 }
 
+function blueRed(h){
+  if (h < 0.5) return [0,0,(1-2*h)*255];
+  else return [(2*h-1)*255,0,0];
+}
+
 function rgbToHex(arr) {
   return "#" + toHex(arr[0]) + toHex(arr[1]) + toHex(arr[2]);
 }
@@ -52,7 +69,7 @@ function start(ctx) {
   function animationLoop() {
     let time = new Date();
     time -= start;
-    time /= TIME_MULTIPLIER;
+    time = TIME_MULTIPLIER;
     start = new Date();
 
     diffuse(fieldGrid.v, time, visc, 1);
@@ -68,7 +85,10 @@ function start(ctx) {
     diffuse(fieldGrid.t, time, diff, 0);
     advect(fieldGrid.t, fieldGrid.v, fieldGrid.u, time, 0);
 
+    rotor(fieldGrid);
+    ctx.clearRect(0, 0, width, height);
     drawField(ctx, CELL_SIZE);
+    //drawVelocity(ctx, CELL_SIZE);
     requestAnimationFrame(animationLoop);
   }
   var start = new Date();
@@ -76,18 +96,22 @@ function start(ctx) {
 }
 
 function drawField(ctx, multiplier) {
-  ctx.clearRect(0, 0, width, height);
-  for (let i = 0; i < gridHeight; i++) {
-    for (let j = 0; j < gridWidth; j++) {
-      let display = fieldGrid.t[i * gridWidth + j];
-      display = display / 200;
-      ctx.fillStyle = rgbToHex(hToRgb((1 - display) * 240));
+  let maxAndMin = arrMaxAndMin(fieldGrid.rotor);
+  for (let i = 1; i < gridHeight-1; i++) {
+    for (let j = 1; j < gridWidth-1; j++) {
+      let display;
+      display = (fieldGrid.rotor[coor(j,i)]-maxAndMin.min) / (maxAndMin.max-maxAndMin.min);
+      ctx.fillStyle = rgbToHex(blueRed((1 - display)));
       ctx.fillRect(j * multiplier, i * multiplier, multiplier, multiplier);
     }
   }
-  for (let i = 0; i < gridHeight; i++) {
-    for (let j = 0; j < gridWidth; j++) {
-      ctx.strokeStyle = "#000000";
+  
+}
+function drawVelocity(ctx, multiplier){
+  for (let i = 1; i < gridHeight-1; i++) {
+    for (let j = 1; j < gridWidth-1; j++) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.globalAlpha = 0.1;
       ctx.beginPath();
       ctx.moveTo((j + 0.5) * multiplier, (i + 0.5) * multiplier);
       ctx.lineTo(
@@ -95,10 +119,10 @@ function drawField(ctx, multiplier) {
         (i + 0.5) * multiplier + 5 * fieldGrid.u[i * gridWidth + j]
       );
       ctx.stroke();
+      ctx.globalAlpha = 1;
     }
   }
 }
-
 function coor(x, y) {
   return gridWidth * y + x;
 }
@@ -184,7 +208,6 @@ function project(v, u) {
       p[coor(i, j)] = 0;
     }
   }
-
   setBnd(div, 3);
   for (let k = 0; k < 20; k++) {
     for (let i = 1; i <= N; i++) {
@@ -212,6 +235,18 @@ function project(v, u) {
   setBnd(u, 2);
 }
 
+function rotor(fieldGrid){
+  for (let i = 1; i < gridHeight-1; i++) {
+    for (let j = 1; j < gridWidth-1; j++) {
+      let temp1 = -fieldGrid.v[coor(j,i+1)];
+      let temp2 = fieldGrid.v[coor(j,i-1)];
+      let temp3 = -fieldGrid.u[coor(j+1,i)];
+      let temp4 = fieldGrid.u[coor(j-1,i)];
+      fieldGrid.rotor[coor(j,i)] = temp1+temp2+temp3+temp4;
+    }
+  }
+}
+
 function setBnd(x, b) {
   if (b == 0) { //для плотности
     for (let i = 1; i < gridWidth - 1; i++) {
@@ -229,14 +264,16 @@ function setBnd(x, b) {
       x[coor(i, gridWidth - 1)] = 0;
     }
     for (let i = 1; i < gridHeight - 1; i++) {
-      x[coor(0, i)] = -x[coor(1, i)];
-      x[coor(gridHeight - 1, i)] = -x[coor(gridHeight - 2, i)];
+      //if (i>40 && i<60)
+      x[coor(0, i)] = 1;
+      //else x[coor(0, i)] = 0;
+      x[coor(gridHeight - 1, i)] = x[coor(gridHeight - 2, i)];
     }
   }
   if (b == 2) { //для у компоненты скорости
     for (let i = 1; i < gridWidth - 1; i++) {
-      x[coor(i, 0)] = -x[coor(i, 1)];
-      x[coor(i, gridWidth - 1)] = -x[coor(i, gridWidth - 2)];
+      x[coor(i, 0)] = 0;
+      x[coor(i, gridWidth - 1)] = 0;
     }
     for (let i = 1; i < gridHeight - 1; i++) {
       x[coor(0, i)] = 0;
@@ -260,23 +297,41 @@ function setBnd(x, b) {
   x[coor(gridHeight - 1, 0)] =
     0.5 * (x[coor(gridHeight - 2, 0)] + x[coor(gridHeight - 1, 1)]);
   x;
+  if(b!=0){
+  for (let i = 0; i < boundary.length; i++) {
+    x[coor(boundary[i].x,boundary[i].y)]=0;    
+  }
+}
 }
 
 function gridInitialize(fieldGrid) {
   for (let i = 0; i < gridHeight; i++) {
     for (let j = 0; j < gridWidth; j++) {
       if (j > 30 && j < 50 && (i > 30 && i < 50)) fieldGrid.t.push(200);
-      else if (j > 50 && j < 70 && (i > 50 && i < 70)) fieldGrid.t.push(200);
-      else fieldGrid.t.push(0);
-      fieldGrid.prevT.push(0);
-      if (j > 30 && j < 50 && (i > 30 && i < 50)) fieldGrid.v.push(20);
-      else fieldGrid.v.push(0);
+      //else if (j > 50 && j < 70 && (i > 50 && i < 70)) fieldGrid.t.push(200);
+      //else 
+      fieldGrid.t.push(0);
+      //if (j > 30 && j < 50 && (i > 30 && i < 50)) fieldGrid.v.push(50);
+      //else 
+      fieldGrid.v.push(0);
       //if (j > 40 && j < 60 )
-      if (j > 50 && j < 70 && (i > 50 && i < 70)) fieldGrid.u.push(-20);
-      else fieldGrid.u.push(0);
+      //if (j > 50 && j < 70 && (i > 50 && i < 70)) fieldGrid.u.push(-50);
+      //else 
+      fieldGrid.u.push(0);
       //else
       //fieldGrid.u.push(0);
+      fieldGrid.rotor.push(0);
     }
+  }
+}
+
+function bodyInit(boundary){
+  for (let i = 0; i < 10; i++) {
+    boundary.push({x:10+i,y:50+i});
+    boundary.push({x:10+i,y:50-i});
+    boundary.push({x:30-i,y:50+i});
+    boundary.push({x:30-i,y:50-i});
+    
   }
 }
 
@@ -286,12 +341,14 @@ function init() {
     prevT: [],
     tSource: [],
     v: [],
-    u: []
+    u: [],
+    rotor: [],
   };
   gridInitialize(fieldGrid);
+  bodyInit(boundary);
   canvasEl = document.getElementById("el");
   ctx = canvasEl.getContext("2d");
-  width = ctx.canvas.width;
-  height = ctx.canvas.height;
+  ctx.canvas.width = width ;
+  ctx.canvas.height = height;
   start(ctx);
 }
